@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: resumes
+      POSTGRES_USER: parser
+      POSTGRES_PASSWORD: parser_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql_output:/sql_output
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parser -d resumes"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  hh-parser:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./output:/home/parser/output
+      - ./logs:/home/parser/logs
+      - ./keywords:/home/parser/keywords
+    environment:
+      - HH_API_TOKEN=${HH_API_TOKEN}
+    command: [
+      "-token", "${HH_API_TOKEN}",
+      "-keywords", "Go,Golang,Backend",
+      "-city", "Moscow",
+      "-format", "sql",
+      "-log", "logs/parser.log",
+      "-rate", "1s",
+      "-update-days", "7"
+    ]
+
+  # Optional: Run parser periodically
+  parser-cron:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./output:/home/parser/output
+      - ./logs:/home/parser/logs
+      - ./keywords:/home/parser/keywords
+      - ./cron:/etc/cron.d
+    environment:
+      - HH_API_TOKEN=${HH_API_TOKEN}
+    command: ["/bin/sh", "-c", "while true; do ./hh-parser -token ${HH_API_TOKEN} -keywords 'Go,Golang' -format json -output output/resumes-$(date +%Y%m%d-%H%M).json -log logs/cron.log; sleep 3600; done"]
+    profiles: ["cron"]
+
+volumes:
+  postgres_data:
