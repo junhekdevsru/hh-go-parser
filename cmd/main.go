@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"encoding/json"
 	"hh-resume-parser/internal/app"
 	"hh-resume-parser/internal/config"
 	"hh-resume-parser/internal/infrastructure/logger"
@@ -107,25 +108,5 @@ func loadKeywordsFromFile(filename string) ([]string, error) {
 
 // parseJSONKeywords - парсинг ключевых слов из JSON
 func parseJSONKeywords(content []byte, keywords *[]string) error {
-	// Простой парсинг JSON массива без импорта encoding/json
-	str := strings.TrimSpace(string(content))
-	if !strings.HasPrefix(str, "[") || !strings.HasSuffix(str, "]") {
-		return fmt.Errorf("не является JSON массивом")
-	}
-
-	// Удаление скобок
-	str = str[1 : len(str)-1]
-
-	// Разделение по запятым
-	parts := strings.Split(str, ",")
-	for _, part := range parts {
-		// Очистка от кавычек и пробелов
-		cleaned := strings.TrimSpace(part)
-		cleaned = strings.Trim(cleaned, "\"")
-		if cleaned != "" {
-			*keywords = append(*keywords, cleaned)
-		}
-	}
-
-	return nil
+	return json.Unmarshal(content, keywords)
 }
